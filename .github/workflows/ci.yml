@@ -1,0 +1,100 @@
+name: Notebook CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+    inputs:
+      full_install:
+        description: "Run full dependency install (can be slow)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: notebook-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate notebooks and deps
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install validation tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install nbformat
+
+      - name: Validate notebook JSON structure
+        run: |
+          python - << 'PY'
+          import json
+          from pathlib import Path
+          import nbformat
+
+          required_files = [
+              Path("README.md"),
+              Path("requirements.txt"),
+              Path("project.ipynb"),
+          ]
+
+          missing = [str(p) for p in required_files if not p.exists()]
+          if missing:
+              raise SystemExit(f"Missing required files: {missing}")
+
+          notebook_paths = sorted(Path(".").glob("*.ipynb"))
+          if not notebook_paths:
+              raise SystemExit("No notebooks found in repository root")
+
+          for nb_path in notebook_paths:
+              with nb_path.open("r", encoding="utf-8") as f:
+                  raw = json.load(f)
+
+              if "cells" not in raw or not isinstance(raw["cells"], list):
+                  raise SystemExit(f"{nb_path}: missing or invalid 'cells' array")
+
+              # Strict parse via nbformat to catch malformed content.
+              nbformat.from_dict(raw)
+
+          print(f"Validated {len(notebook_paths)} notebook(s):")
+          for p in notebook_paths:
+              print(f" - {p}")
+          PY
+
+      - name: Check dependency resolution (dry run)
+        run: |
+          python -m pip install --dry-run -r requirements.txt
+
+      - name: Full dependency install (manual only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_install == true }}
+        run: |
+          python -m pip install -r requirements.txt
+
+      - name: Import smoke test (manual full install only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_install == true }}
+        run: |
+          python - << 'PY'
+          import tensorflow as tf
+          import numpy as np
+          import pandas as pd
+          import sklearn
+          import matplotlib
+          import seaborn
+          print("Core imports OK")
+          print("TensorFlow version:", tf.__version__)
+          PY
