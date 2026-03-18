@@ -1,4 +1,4 @@
 venv/
 dataset_70_20_10
 *.h5
-
+outputs/
