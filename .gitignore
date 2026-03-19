@@ -2,3 +2,6 @@ venv/
 dataset_70_20_10
 *.h5
 outputs/
+models/
+images/
+architectures-images/
