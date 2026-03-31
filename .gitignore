@@ -1,2 +1,5 @@
 venv/
 requirements_copy.txt
+*/*.h5
+dataset1_70_20_10
+dataset2_70_20_10
