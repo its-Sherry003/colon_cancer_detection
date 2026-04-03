@@ -5,3 +5,5 @@ dataset1_70_20_10
 dataset2_70_20_10
 *.h5
 *.zip
+*/*.keras
+*.keras
